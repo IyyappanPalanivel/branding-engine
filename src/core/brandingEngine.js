@@ -2,6 +2,33 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile } from '@ffmpeg/util';
 
+async function createNameCardImage(customerName, customerRole, brandColor) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const width = 600;
+  const height = 150;
+
+  canvas.width = width;
+  canvas.height = height;
+
+  // Background
+  ctx.fillStyle = brandColor || '#000';
+  ctx.fillRect(0, 0, width, height);
+
+  // Text - Name
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 36px Arial';
+  ctx.fillText(customerName, 20, 60);
+
+  // Text - Role
+  ctx.font = '24px Arial';
+  ctx.fillText(customerRole, 20, 110);
+
+  return new Promise((resolve) => {
+    canvas.toBlob(resolve, 'image/png');
+  });
+}
+
 const getLogoDimensions = (size) => {
   switch (size) {
     case 'small': return 80;
@@ -41,12 +68,16 @@ export async function brandTestimonialVideo({
 
   const videoData = await fetchFile(videoFile);
   const logoData = await fetchFile(logoFile);
+  const nameCardBlob = await createNameCardImage(customerName, customerRole, brandColor);
+  const nameCardArrayBuffer = await nameCardBlob.arrayBuffer();
 
   const logoSizePx = getLogoDimensions(logoSize);
   const overlayPos = getOverlayPosition(logoPosition, logoSizePx);
+  const nameCardPos = `10:main_h-overlay_h-20`; // bottom-left with margin
 
   await ffmpeg.writeFile('input.mp4', videoData);
   await ffmpeg.writeFile('logo.png', logoData);
+  await ffmpeg.writeFile('name_card.png', new Uint8Array(nameCardArrayBuffer));
 
   // Scale logo
   await ffmpeg.exec([
@@ -55,17 +86,21 @@ export async function brandTestimonialVideo({
     'logo_scaled.png'
   ]);
 
-  // Overlay logo
+  // Overlay logo and name card
   await ffmpeg.exec([
     '-i', 'input.mp4',
     '-i', 'logo_scaled.png',
-    '-filter_complex', `overlay=${overlayPos}`,
+    '-i', 'name_card.png',
+    '-filter_complex',
+    `[0:v][1:v]overlay=${overlayPos}[tmp];[tmp][2:v]overlay=${nameCardPos}`,
+    '-c:a', 'copy',
     'output.mp4'
   ]);
 
   const output = await ffmpeg.readFile('output.mp4');
   const videoBlob = new Blob([output.buffer], { type: 'video/mp4' });
   const videoURL = URL.createObjectURL(videoBlob);
+
   await ffmpeg.terminate();
   return videoURL;
 }

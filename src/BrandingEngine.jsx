@@ -26,7 +26,7 @@ function getLogoSize(size) {
 export default function BrandingEngineUI() {
   const [videoFile, setVideoFile] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
-  const [customerName, setCustomerName] = useState('Jane Doe');
+  const [customerName, setCustomerName] = useState('Millie');
   const [customerRole, setCustomerRole] = useState('Marketing Manager');
   const [brandColor, setBrandColor] = useState('#FF5733');
   const [logoPosition, setLogoPosition] = useState('top-right');
