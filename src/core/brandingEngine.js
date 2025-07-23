@@ -1,5 +1,15 @@
+// Branding Engine Configuration
 import { LOGO_SIZES, POSITIONS } from '../utils/engineConfigurations';
 
+// -------------------------
+// 📐 Get FFmpeg overlay position string for logo
+// -------------------------
+function getLogoOverlayPosition(position, size) {
+  const basePosition = POSITIONS[position]?.ffmpeg || POSITIONS['top-right'].ffmpeg;
+  return basePosition.replace('overlay_w', LOGO_SIZES[size].px);
+}
+
+// Name Card Configuration
 const NAME_CARD_CONFIG = {
   maxWidth: 480,
   height: 120,
@@ -8,21 +18,21 @@ const NAME_CARD_CONFIG = {
   borderRadius: 12,
   fonts: {
     name: { size: 28, weight: 'bold' },
-    role: { size: 18, weight: 'normal' }
-  }
+    role: { size: 18, weight: 'normal' },
+  },
 };
 
-/**
- * Dynamically computes name card width based on name and role length.
- */
+// -------------------------
+// 🔧 Compute dynamic width for name card
+// -------------------------
 function computeNameCardWidth(name, role) {
   const baseWidth = 200 + name.length * 10 + role.length * 6;
   return Math.min(baseWidth, NAME_CARD_CONFIG.maxWidth);
 }
 
-/**
- * Creates a name card PNG using canvas.
- */
+// -------------------------
+// 🖼️ Create name card as canvas PNG
+// -------------------------
 async function createNameCardImage(name, role, color) {
   const width = computeNameCardWidth(name, role);
   const height = NAME_CARD_CONFIG.height;
@@ -33,14 +43,14 @@ async function createNameCardImage(name, role, color) {
   canvas.width = width;
   canvas.height = height;
 
-  // Draw background with rounded corners
+  // Draw rounded background
   ctx.clearRect(0, 0, width, height);
   ctx.beginPath();
   ctx.roundRect(0, 0, width, height, NAME_CARD_CONFIG.borderRadius);
   ctx.fillStyle = color || '#000';
   ctx.fill();
 
-  // Set text styles
+  // Text styles
   ctx.fillStyle = '#fff';
   ctx.textBaseline = 'top';
 
@@ -56,17 +66,9 @@ async function createNameCardImage(name, role, color) {
   });
 }
 
-/**
- * Calculates logo overlay position based on size & config.
- */
-function getLogoOverlayPosition(position, size) {
-  const basePosition = POSITIONS[position]?.ffmpeg || POSITIONS['top-right'].ffmpeg;
-  return basePosition.replace('overlay_w', LOGO_SIZES[size].px);
-}
-
-/**
- * Branding engine entry point.
- */
+// -------------------------
+// 🚀 Main Branding Engine
+// -------------------------
 export default async function brandTestimonialVideo({
   videoFile,
   logoFile,
@@ -103,7 +105,6 @@ export default async function brandTestimonialVideo({
     const nameCardBlob = await createNameCardImage(customerName, customerRole, brandColor);
     const nameCardBuffer = await nameCardBlob.arrayBuffer();
 
-    // Write files to virtual FS
     await ffmpeg.writeFile('input.mp4', videoData);
     await ffmpeg.writeFile('logo.png', logoData);
     await ffmpeg.writeFile('name_card.png', new Uint8Array(nameCardBuffer));
