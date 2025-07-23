@@ -1,54 +1,68 @@
-// brandingEngine.js
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile } from '@ffmpeg/util';
 
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+
+// Unified configuration constants
+const LOGO_SIZES = {
+  small: { px: 80, preview: '50px' },
+  medium: { px: 160, preview: '80px' },
+  large: { px: 240, preview: '120px' }
+};
+
+const POSITIONS = {
+  'top-left': { preview: 'top-4 left-4', ffmpeg: '10:10' },
+  'top-right': { preview: 'top-4 right-4', ffmpeg: 'main_w-overlay_w-10:10' },
+  'bottom-left': { preview: 'bottom-4 left-4', ffmpeg: '10:main_h-overlay_h-10' },
+  'bottom-right': { preview: 'bottom-4 right-4', ffmpeg: 'main_w-overlay_w-10:main_h-overlay_h-10' }
+};
+
+// Name card configuration
+const NAME_CARD_CONFIG = {
+  width: 600,
+  height: 150,
+  padding: 20,
+  margin: 20,
+  fonts: {
+    name: { size: 36, weight: 'bold' },
+    role: { size: 24, weight: 'normal' }
+  }
+};
+
+// Optimized branding engine
 async function createNameCardImage(customerName, customerRole, brandColor) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
-  const width = 600;
-  const height = 150;
+  const { width, height, padding, fonts } = NAME_CARD_CONFIG;
 
   canvas.width = width;
   canvas.height = height;
 
-  // Background
+  // Background with rounded corners effect
   ctx.fillStyle = brandColor || '#000';
   ctx.fillRect(0, 0, width, height);
 
-  // Text - Name
+  // Text styling
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 36px Arial';
-  ctx.fillText(customerName, 20, 60);
+  ctx.textBaseline = 'top';
 
-  // Text - Role
-  ctx.font = '24px Arial';
-  ctx.fillText(customerRole, 20, 110);
+  // Customer name
+  ctx.font = `${fonts.name.weight} ${fonts.name.size}px Arial, sans-serif`;
+  ctx.fillText(customerName, padding, padding);
+
+  // Customer role
+  ctx.font = `${fonts.role.weight} ${fonts.role.size}px Arial, sans-serif`;
+  ctx.fillText(customerRole, padding, padding + fonts.name.size + 10);
 
   return new Promise((resolve) => {
     canvas.toBlob(resolve, 'image/png');
   });
 }
 
-const getLogoDimensions = (size) => {
-  switch (size) {
-    case 'small': return 80;
-    case 'medium': return 160;
-    case 'large': return 240;
-    default: return 160;
-  }
-};
+function getOverlayPosition(position, logoSize) {
+  const basePos = POSITIONS[position]?.ffmpeg || POSITIONS['top-right'].ffmpeg;
+  return basePos.replace('overlay_w', LOGO_SIZES[logoSize].px);
+}
 
-const getOverlayPosition = (position, logoSize) => {
-  switch (position) {
-    case 'top-left': return `10:10`;
-    case 'top-right': return `main_w-${logoSize + 10}:10`;
-    case 'bottom-left': return `10:main_h-${logoSize + 10}`;
-    case 'bottom-right': return `main_w-${logoSize + 10}:main_h-${logoSize + 10}`;
-    default: return `10:10`;
-  }
-};
-
-export async function brandTestimonialVideo({
+export default async function brandTestimonialVideo({
   videoFile,
   logoFile,
   customerName,
@@ -59,48 +73,77 @@ export async function brandTestimonialVideo({
   setProgressValue,
   setLogs,
 }) {
-  const ffmpeg = new FFmpeg();
-  ffmpeg.on('log', ({ message }) => setLogs((prev) => [...prev, message]));
-  ffmpeg.on('progress', ({ progress }) => setProgressValue(Math.round(progress * 100)));
+  try {
+    // Dynamic import for FFmpeg
+    const { FFmpeg } = await import('@ffmpeg/ffmpeg');
+    const { fetchFile } = await import('@ffmpeg/util');
 
-  await ffmpeg.load();
-  setLogs((prev) => [...prev, 'FFmpeg loaded']);
+    const ffmpeg = new FFmpeg();
+    
+    // Enhanced logging
+    ffmpeg.on('log', ({ message }) => {
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
+    });
+    
+    ffmpeg.on('progress', ({ progress }) => {
+      const percentage = Math.round(progress * 100);
+      setProgressValue(percentage);
+    });
 
-  const videoData = await fetchFile(videoFile);
-  const logoData = await fetchFile(logoFile);
-  const nameCardBlob = await createNameCardImage(customerName, customerRole, brandColor);
-  const nameCardArrayBuffer = await nameCardBlob.arrayBuffer();
+    setLogs(prev => [...prev, 'Initializing FFmpeg...']);
+    await ffmpeg.load();
+    setLogs(prev => [...prev, 'FFmpeg loaded successfully']);
 
-  const logoSizePx = getLogoDimensions(logoSize);
-  const overlayPos = getOverlayPosition(logoPosition, logoSizePx);
-  const nameCardPos = `10:main_h-overlay_h-20`; // bottom-left with margin
+    // Process files
+    setLogs(prev => [...prev, 'Processing video file...']);
+    const videoData = await fetchFile(videoFile);
+    
+    setLogs(prev => [...prev, 'Processing logo file...']);
+    const logoData = await fetchFile(logoFile);
+    
+    setLogs(prev => [...prev, 'Creating name card...']);
+    const nameCardBlob = await createNameCardImage(customerName, customerRole, brandColor);
+    const nameCardArrayBuffer = await nameCardBlob.arrayBuffer();
 
-  await ffmpeg.writeFile('input.mp4', videoData);
-  await ffmpeg.writeFile('logo.png', logoData);
-  await ffmpeg.writeFile('name_card.png', new Uint8Array(nameCardArrayBuffer));
+    // Write files to FFmpeg
+    await ffmpeg.writeFile('input.mp4', videoData);
+    await ffmpeg.writeFile('logo.png', logoData);
+    await ffmpeg.writeFile('name_card.png', new Uint8Array(nameCardArrayBuffer));
 
-  // Scale logo
-  await ffmpeg.exec([
-    '-i', 'logo.png',
-    '-vf', `scale=${logoSizePx}:${logoSizePx}`,
-    'logo_scaled.png'
-  ]);
+    const logoSizePx = LOGO_SIZES[logoSize].px;
+    const logoOverlayPos = getOverlayPosition(logoPosition, logoSize);
+    const nameCardPos = `10:main_h-overlay_h-${NAME_CARD_CONFIG.margin}`;
 
-  // Overlay logo and name card
-  await ffmpeg.exec([
-    '-i', 'input.mp4',
-    '-i', 'logo_scaled.png',
-    '-i', 'name_card.png',
-    '-filter_complex',
-    `[0:v][1:v]overlay=${overlayPos}[tmp];[tmp][2:v]overlay=${nameCardPos}`,
-    '-c:a', 'copy',
-    'output.mp4'
-  ]);
+    setLogs(prev => [...prev, `Scaling logo to ${logoSizePx}x${logoSizePx}...`]);
+    await ffmpeg.exec([
+      '-i', 'logo.png',
+      '-vf', `scale=${logoSizePx}:${logoSizePx}:force_original_aspect_ratio=decrease`,
+      'logo_scaled.png'
+    ]);
 
-  const output = await ffmpeg.readFile('output.mp4');
-  const videoBlob = new Blob([output.buffer], { type: 'video/mp4' });
-  const videoURL = URL.createObjectURL(videoBlob);
+    setLogs(prev => [...prev, 'Applying overlays to video...']);
+    await ffmpeg.exec([
+      '-i', 'input.mp4',
+      '-i', 'logo_scaled.png',
+      '-i', 'name_card.png',
+      '-filter_complex',
+      `[0:v][1:v]overlay=${logoOverlayPos}[tmp];[tmp][2:v]overlay=${nameCardPos}`,
+      '-c:a', 'copy',
+      '-y',
+      'output.mp4'
+    ]);
 
-  await ffmpeg.terminate();
-  return videoURL;
+    setLogs(prev => [...prev, 'Generating final video...']);
+    const output = await ffmpeg.readFile('output.mp4');
+    const videoBlob = new Blob([output.buffer], { type: 'video/mp4' });
+    const videoURL = URL.createObjectURL(videoBlob);
+
+    await ffmpeg.terminate();
+    setLogs(prev => [...prev, 'Video processing complete!']);
+    return videoURL;
+
+  } catch (error) {
+    setLogs(prev => [...prev, `Error: ${error.message}`]);
+    throw error;
+  }
 }

@@ -1,27 +1,31 @@
-import React, { useState, useEffect } from 'react';
-import { brandTestimonialVideo } from './core/brandingEngine';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import brandTestimonialVideo from './core/brandingEngine';
 
-function getPosition(position) {
-  const map = {
-    'top-left': 'top-4 left-4',
-    'top-right': 'top-4 right-4',
-    'bottom-left': 'bottom-4 left-4',
-    'bottom-right': 'bottom-4 right-4',
-  };
-  return map[position] || 'top-4 right-4';
-}
+// Unified configuration constants
+const LOGO_SIZES = {
+  small: { px: 80, preview: '50px' },
+  medium: { px: 160, preview: '80px' },
+  large: { px: 240, preview: '120px' }
+};
 
-function getLogoSize(size) {
-  switch (size) {
-    case 'small':
-      return '50px';
-    case 'large':
-      return '120px';
-    default:
-      return '80px';
+const POSITIONS = {
+  'top-left': { preview: 'top-4 left-4', ffmpeg: '10:10' },
+  'top-right': { preview: 'top-4 right-4', ffmpeg: 'main_w-overlay_w-10:10' },
+  'bottom-left': { preview: 'bottom-4 left-4', ffmpeg: '10:main_h-overlay_h-10' },
+  'bottom-right': { preview: 'bottom-4 right-4', ffmpeg: 'main_w-overlay_w-10:main_h-overlay_h-10' }
+};
+
+// Name card configuration
+const NAME_CARD_CONFIG = {
+  width: 600,
+  height: 150,
+  padding: 20,
+  margin: 20,
+  fonts: {
+    name: { size: 36, weight: 'bold' },
+    role: { size: 24, weight: 'normal' }
   }
-}
-
+};
 
 export default function BrandingEngineUI() {
   const [videoFile, setVideoFile] = useState(null);
@@ -33,136 +37,237 @@ export default function BrandingEngineUI() {
   const [logoSize, setLogoSize] = useState('medium');
   const [videoPreview, setVideoPreview] = useState(null);
   const [rawVideoURL, setRawVideoURL] = useState(null);
+  const [logoPreviewURL, setLogoPreviewURL] = useState(null);
   const [progress, setProgress] = useState(0);
   const [logs, setLogs] = useState([]);
+  const [isProcessing, setIsProcessing] = useState(false);
 
+  // Memoized values for performance
+  const logoPositionClass = useMemo(() => 
+    POSITIONS[logoPosition]?.preview || POSITIONS['top-right'].preview, 
+    [logoPosition]
+  );
+
+  const logoSizeStyle = useMemo(() => 
+    LOGO_SIZES[logoSize]?.preview || LOGO_SIZES.medium.preview, 
+    [logoSize]
+  );
+
+  // Handle video file change
   useEffect(() => {
     if (videoFile) {
       const url = URL.createObjectURL(videoFile);
       setRawVideoURL(url);
+      return () => URL.revokeObjectURL(url);
     }
   }, [videoFile]);
 
-  const handleRender = async () => {
-    if (!videoFile || !logoFile) return alert('Upload both video and logo first');
+  // Handle logo file change
+  useEffect(() => {
+    if (logoFile) {
+      const url = URL.createObjectURL(logoFile);
+      setLogoPreviewURL(url);
+      return () => URL.revokeObjectURL(url);
+    }
+  }, [logoFile]);
 
+  const handleRender = useCallback(async () => {
+    if (!videoFile || !logoFile) {
+      alert('Please upload both video and logo files first');
+      return;
+    }
+
+    setIsProcessing(true);
     setVideoPreview(null);
     setProgress(0);
-    setLogs([]);
+    setLogs(['Starting video processing...']);
 
-    const result = await brandTestimonialVideo({
-      videoFile,
-      logoFile,
-      customerName,
-      customerRole,
-      brandColor,
-      logoPosition,
-      logoSize,
-      setProgressValue: setProgress,
-      setLogs,
-    });
+    try {
+      const result = await brandTestimonialVideo({
+        videoFile,
+        logoFile,
+        customerName,
+        customerRole,
+        brandColor,
+        logoPosition,
+        logoSize,
+        setProgressValue: setProgress,
+        setLogs,
+      });
+      setVideoPreview(result);
+    } catch (error) {
+      setLogs(prev => [...prev, `Processing failed: ${error.message}`]);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [videoFile, logoFile, customerName, customerRole, brandColor, logoPosition, logoSize]);
 
-    setVideoPreview(result);
-  };
+  const clearLogs = useCallback(() => setLogs([]), []);
 
   return (
-    <div className="flex flex-row w-full h-screen bg-[#f8f9fa] text-gray-800 font-sans overflow-hidden">
+    <div className="flex flex-row w-full h-screen bg-gradient-to-br from-gray-50 to-gray-100 text-gray-800 font-sans overflow-hidden">
       {/* Left Configuration Panel */}
-      <div className="w-1/3 min-w-[350px] p-6 space-y-6 bg-white border-r overflow-y-auto">
-        <h2 className="text-2xl font-bold mb-4 text-blue-700">🎨 Branding Config</h2>
-
-        {/* Raw Video */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Upload Raw Testimonial Video</label>
-          <input type="file" accept="video/*" onChange={(e) => setVideoFile(e.target.files[0])} />
+      <div className="w-1/3 min-w-[380px] p-6 space-y-6 bg-white border-r shadow-lg overflow-y-auto">
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-bold text-blue-700 mb-2">🎨 Video Branding Studio</h1>
+          <p className="text-gray-600 text-sm">Transform raw videos into branded testimonials</p>
         </div>
 
-        {/* Logo */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Upload Brand Logo</label>
-          <input type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files[0])} />
+        {/* File Uploads */}
+        <div className="space-y-4">
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">📹 Raw Testimonial Video</label>
+            <input 
+              type="file" 
+              accept="video/*" 
+              onChange={(e) => setVideoFile(e.target.files[0])}
+              className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            />
+            {videoFile && <p className="text-xs text-green-600 mt-1">✓ {videoFile.name}</p>}
+          </div>
+
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">🏷️ Brand Logo</label>
+            <input 
+              type="file" 
+              accept="image/*" 
+              onChange={(e) => setLogoFile(e.target.files[0])}
+              className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            />
+            {logoFile && <p className="text-xs text-green-600 mt-1">✓ {logoFile.name}</p>}
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
-          <input
-            type="text"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Jane Doe"
-          />
+        {/* Customer Information */}
+        <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+          <h3 className="font-semibold text-gray-700">👤 Customer Information</h3>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <input
+              type="text"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Enter customer name"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Role/Title</label>
+            <input
+              type="text"
+              value={customerRole}
+              onChange={(e) => setCustomerRole(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Enter role or title"
+            />
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Customer Role</label>
-          <input
-            type="text"
-            value={customerRole}
-            onChange={(e) => setCustomerRole(e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Marketing Manager"
-          />
+        {/* Branding Options */}
+        <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+          <h3 className="font-semibold text-gray-700">🎨 Branding Options</h3>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Brand Color</label>
+            <div className="flex items-center space-x-3">
+              <input
+                type="color"
+                value={brandColor}
+                onChange={(e) => setBrandColor(e.target.value)}
+                className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+              />
+              <input
+                type="text"
+                value={brandColor}
+                onChange={(e) => setBrandColor(e.target.value)}
+                className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Logo Position</label>
+              <select
+                value={logoPosition}
+                onChange={(e) => setLogoPosition(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="top-left">Top Left</option>
+                <option value="top-right">Top Right</option>
+                <option value="bottom-left">Bottom Left</option>
+                <option value="bottom-right">Bottom Right</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Logo Size</label>
+              <select
+                value={logoSize}
+                onChange={(e) => setLogoSize(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="small">Small</option>
+                <option value="medium">Medium</option>
+                <option value="large">Large</option>
+              </select>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Brand Color</label>
-          <input
-            type="color"
-            value={brandColor}
-            onChange={(e) => setBrandColor(e.target.value)}
-            className="w-16 h-10 border-none"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Logo Position</label>
-          <select
-            value={logoPosition}
-            onChange={(e) => setLogoPosition(e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-2"
-          >
-            <option value="top-left">Top Left</option>
-            <option value="top-right">Top Right</option>
-            <option value="bottom-left">Bottom Left</option>
-            <option value="bottom-right">Bottom Right</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Logo Size</label>
-          <select
-            value={logoSize}
-            onChange={(e) => setLogoSize(e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-2"
-          >
-            <option value="small">Small</option>
-            <option value="medium">Medium</option>
-            <option value="large">Large</option>
-          </select>
-        </div>
-
+        {/* Action Button */}
         <button
           onClick={handleRender}
-          className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded w-full mt-4"
+          disabled={!videoFile || !logoFile || isProcessing}
+          className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 text-white py-3 px-6 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 disabled:hover:scale-100 disabled:cursor-not-allowed"
         >
-          🚀 Start Branding
+          {isProcessing ? '⏳ Processing...' : '🚀 Generate Branded Video'}
         </button>
 
-        <div className="mt-4">
-          <label className="text-sm font-medium">Progress: {progress}%</label>
-          <progress className="w-full" value={progress} max="100"></progress>
-        </div>
+        {/* Progress */}
+        {isProcessing && (
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <div className="flex justify-between text-sm mb-2">
+              <span className="font-medium text-blue-700">Progress</span>
+              <span className="text-blue-600">{progress}%</span>
+            </div>
+            <div className="w-full bg-blue-200 rounded-full h-2">
+              <div 
+                className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Right Section */}
-      <div className="flex flex-col flex-1 p-6">
-        {/* Live Preview */}
-        <div className="flex-1 mb-6">
-          <h2 className="text-xl font-bold mb-2">🔍 Live Preview</h2>
-          <div className="relative w-full max-w-4xl mx-auto rounded-xl overflow-hidden shadow border bg-black">
+      <div className="flex flex-col flex-1 p-6 space-y-6">
+        {/* Preview Section */}
+        <div className="flex-1">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-gray-700">🔍 Live Preview</h2>
+            {videoPreview && (
+              <a
+                href={videoPreview}
+                download="branded-testimonial.mp4"
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              >
+                📥 Download Video
+              </a>
+            )}
+          </div>
+          
+          <div className="relative w-full max-w-4xl mx-auto rounded-xl overflow-hidden shadow-2xl border-2 border-gray-200 bg-black">
             {videoPreview ? (
-              <video src={videoPreview} controls className="w-full" />
+              <video 
+                src={videoPreview} 
+                controls 
+                className="w-full"
+                style={{ maxHeight: '60vh' }}
+              />
             ) : rawVideoURL ? (
               <>
                 <video
@@ -171,44 +276,63 @@ export default function BrandingEngineUI() {
                   muted
                   playsInline
                   loop
+                  autoPlay
+                  style={{ maxHeight: '60vh' }}
                 />
-                {/* Logo Overlay */}
-                {logoFile && (
+                
+                {/* Logo Overlay Preview */}
+                {logoPreviewURL && (
                   <img
-                    src={URL.createObjectURL(logoFile)}
-                    className={`absolute ${getPosition(logoPosition)} z-10`}
+                    src={logoPreviewURL}
+                    className={`absolute ${logoPositionClass} z-10 pointer-events-none`}
                     style={{
-                      width: getLogoSize(logoSize),
+                      width: logoSizeStyle,
                       height: 'auto',
                       objectFit: 'contain',
+                      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
                     }}
                     alt="Logo Preview"
                   />
                 )}
-                {/* Name Card Overlay */}
+                
+                {/* Name Card Preview */}
                 <div
-                  className="absolute bottom-4 left-4 z-10 text-white p-3 rounded-lg shadow-lg"
+                  className="absolute bottom-4 left-4 z-10 text-white p-4 rounded-lg shadow-xl backdrop-blur-sm"
                   style={{
                     backgroundColor: brandColor,
                     maxWidth: '60%',
+                    minWidth: '300px',
                   }}
                 >
-                  <h3 className="text-md font-bold leading-tight">{customerName}</h3>
-                  <p className="text-xs">{customerRole}</p>
+                  <h3 className="text-lg font-bold leading-tight mb-1">{customerName}</h3>
+                  <p className="text-sm opacity-90">{customerRole}</p>
                 </div>
               </>
             ) : (
-              <div className="w-full h-[400px] flex items-center justify-center text-gray-400">
-                No video selected
+              <div className="w-full h-[400px] flex flex-col items-center justify-center text-gray-400 space-y-4">
+                <div className="text-6xl">🎬</div>
+                <p className="text-lg">Upload a video to see preview</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Logs */}
-        <div className="h-48 bg-white p-4 rounded shadow overflow-auto">
-          <h3 className="font-semibold text-sm mb-2 text-gray-700">📜 Engine Logs</h3>
-          <pre className="text-xs whitespace-pre-wrap font-mono text-gray-600">{logs.join('\n')}</pre>
+        {/* Logs Section */}
+        <div className="h-48 bg-white rounded-lg shadow border overflow-hidden">
+          <div className="flex justify-between items-center p-4 border-b bg-gray-50">
+            <h3 className="font-semibold text-gray-700">📜 Processing Logs</h3>
+            <button
+              onClick={clearLogs}
+              className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-200 transition-colors"
+            >
+              Clear
+            </button>
+          </div>
+          <div className="p-4 h-full overflow-auto">
+            <pre className="text-xs whitespace-pre-wrap font-mono text-gray-600 leading-relaxed">
+              {logs.length > 0 ? logs.join('\n') : 'Waiting for processing to start...'}
+            </pre>
+          </div>
         </div>
       </div>
     </div>
