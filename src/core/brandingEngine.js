@@ -14,16 +14,16 @@ const POSITIONS = {
   'bottom-right': { preview: 'bottom-4 right-4', ffmpeg: 'main_w-overlay_w-10:main_h-overlay_h-10' }
 };
 
-// Name card configuration - matches preview dimensions
+// Name card configuration - scaled for video resolution
 const NAME_CARD_CONFIG = {
-  width: 300,
-  height: 80,
-  padding: 16,
+  width: 480,
+  height: 120,
+  padding: 24,
   margin: 20,
-  borderRadius: 8,
+  borderRadius: 12,
   fonts: {
-    name: { size: 18, weight: 'bold' },
-    role: { size: 12, weight: 'normal' }
+    name: { size: 28, weight: 'bold' },
+    role: { size: 18, weight: 'normal' }
   }
 };
 
@@ -56,7 +56,7 @@ async function createNameCardImage(customerName, customerRole, brandColor) {
 
   // Customer role
   ctx.font = `${fonts.role.weight} ${fonts.role.size}px Arial, sans-serif`;
-  const roleY = nameY + fonts.name.size + 4;
+  const roleY = nameY + fonts.name.size + 6;
   ctx.fillText(customerRole, padding, roleY);
 
   return new Promise((resolve) => {
