@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
 // Unified configuration constants
@@ -15,30 +14,36 @@ const POSITIONS = {
   'bottom-right': { preview: 'bottom-4 right-4', ffmpeg: 'main_w-overlay_w-10:main_h-overlay_h-10' }
 };
 
-// Name card configuration
+// Name card configuration - matches preview dimensions
 const NAME_CARD_CONFIG = {
-  width: 600,
-  height: 150,
-  padding: 20,
+  width: 300,
+  height: 80,
+  padding: 16,
   margin: 20,
+  borderRadius: 8,
   fonts: {
-    name: { size: 36, weight: 'bold' },
-    role: { size: 24, weight: 'normal' }
+    name: { size: 18, weight: 'bold' },
+    role: { size: 12, weight: 'normal' }
   }
 };
 
-// Optimized branding engine
+// Optimized branding engine with rounded corners
 async function createNameCardImage(customerName, customerRole, brandColor) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
-  const { width, height, padding, fonts } = NAME_CARD_CONFIG;
+  const { width, height, padding, borderRadius, fonts } = NAME_CARD_CONFIG;
 
   canvas.width = width;
   canvas.height = height;
 
-  // Background with rounded corners effect
+  // Clear canvas
+  ctx.clearRect(0, 0, width, height);
+
+  // Create rounded rectangle background
+  ctx.beginPath();
+  ctx.roundRect(0, 0, width, height, borderRadius);
   ctx.fillStyle = brandColor || '#000';
-  ctx.fillRect(0, 0, width, height);
+  ctx.fill();
 
   // Text styling
   ctx.fillStyle = '#fff';
@@ -46,11 +51,13 @@ async function createNameCardImage(customerName, customerRole, brandColor) {
 
   // Customer name
   ctx.font = `${fonts.name.weight} ${fonts.name.size}px Arial, sans-serif`;
-  ctx.fillText(customerName, padding, padding);
+  const nameY = padding;
+  ctx.fillText(customerName, padding, nameY);
 
   // Customer role
   ctx.font = `${fonts.role.weight} ${fonts.role.size}px Arial, sans-serif`;
-  ctx.fillText(customerRole, padding, padding + fonts.name.size + 10);
+  const roleY = nameY + fonts.name.size + 4;
+  ctx.fillText(customerRole, padding, roleY);
 
   return new Promise((resolve) => {
     canvas.toBlob(resolve, 'image/png');

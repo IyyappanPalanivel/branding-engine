@@ -15,24 +15,12 @@ const POSITIONS = {
   'bottom-right': { preview: 'bottom-4 right-4', ffmpeg: 'main_w-overlay_w-10:main_h-overlay_h-10' }
 };
 
-// Name card configuration
-const NAME_CARD_CONFIG = {
-  width: 600,
-  height: 150,
-  padding: 20,
-  margin: 20,
-  fonts: {
-    name: { size: 36, weight: 'bold' },
-    role: { size: 24, weight: 'normal' }
-  }
-};
-
 export default function BrandingEngineUI() {
   const [videoFile, setVideoFile] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
   const [customerName, setCustomerName] = useState('Millie');
   const [customerRole, setCustomerRole] = useState('Marketing Manager');
-  const [brandColor, setBrandColor] = useState('#FF5733');
+  const [brandColor, setBrandColor] = useState('#1DA1F2');
   const [logoPosition, setLogoPosition] = useState('top-right');
   const [logoSize, setLogoSize] = useState('medium');
   const [videoPreview, setVideoPreview] = useState(null);
