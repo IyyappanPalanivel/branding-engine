@@ -1,6 +1,9 @@
-import React from 'react'
+import React, { useState } from 'react'
+import VideoRecorder from './VideoRecorder'
 
 function LeftPanel({ videoFile, logoFile, setVideoFile, setLogoFile, customerName, setCustomerName, customerRole, setCustomerRole, brandColor, setBrandColor, logoPosition, setLogoPosition, logoSize, setLogoSize, isProcessing, handleRender, progress }) {
+  const [videoMode, setVideoMode] = useState('upload'); // 'upload' or 'record'
+
   return (
     <div className="w-1/3 min-w-[380px] p-6 space-y-6 bg-white border-r shadow-lg overflow-y-auto">
       <div className="text-center mb-6">
@@ -8,19 +11,55 @@ function LeftPanel({ videoFile, logoFile, setVideoFile, setLogoFile, customerNam
         <p className="text-gray-600 text-sm">Transform raw videos into branded testimonials</p>
       </div>
 
-      {/* File Uploads */}
+      {/* Video Input Mode Tabs */}
       <div className="space-y-4">
-        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">📹 Raw Testimonial Video</label>
-          <input
-            type="file"
-            accept="video/*"
-            onChange={(e) => setVideoFile(e.target.files[0])}
-            className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-          />
-          {videoFile && <p className="text-xs text-green-600 mt-1">✓ {videoFile.name}</p>}
+        {/* Tab Buttons */}
+        <div className="flex bg-gray-100 rounded-lg p-1 space-x-1">
+          <button
+            onClick={() => setVideoMode('upload')}
+            className={`flex-1 py-2 px-4 rounded-md font-semibold text-sm transition-all duration-200 flex items-center justify-center space-x-2 ${videoMode === 'upload'
+                ? 'bg-white text-blue-700 shadow-sm'
+                : 'text-gray-600 hover:text-gray-800'
+              }`}
+          >
+            <span>📤</span>
+            <span>Upload</span>
+          </button>
+          <button
+            onClick={() => setVideoMode('record')}
+            className={`flex-1 py-2 px-4 rounded-md font-semibold text-sm transition-all duration-200 flex items-center justify-center space-x-2 ${videoMode === 'record'
+                ? 'bg-white text-red-700 shadow-sm'
+                : 'text-gray-600 hover:text-gray-800'
+              }`}
+          >
+            <span>🎥</span>
+            <span>Record</span>
+          </button>
         </div>
 
+        {/* Upload Mode */}
+        {videoMode === 'upload' && (
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">📹 Raw Testimonial Video</label>
+            <input
+              type="file"
+              accept="video/*"
+              onChange={(e) => setVideoFile(e.target.files[0])}
+              className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            />
+            {videoFile && <p className="text-xs text-green-600 mt-1">✓ {videoFile.name}</p>}
+          </div>
+        )}
+
+        {/* Record Mode */}
+        {videoMode === 'record' && (
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">🎥 Record Testimonial Video</label>
+            <VideoRecorder onVideoRecorded={setVideoFile} />
+          </div>
+        )}
+
+        {/* Logo Upload (always visible) */}
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
           <label className="block text-sm font-semibold text-gray-700 mb-2">🏷️ Brand Logo</label>
           <input
